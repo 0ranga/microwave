@@ -20,5 +20,6 @@ private:
 
 private slots:
     void on_clockButton_clicked();
+    void changeDisplay();
 };
 #endif // MAINWINDOW_H
