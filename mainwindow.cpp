@@ -35,11 +35,15 @@ MainWindow::MainWindow(QWidget *parent)
     modeState = new QState(stopState);
     defrostState = new QState(stopState);
 
+    // Idle to cooking
+    addTrans(s1, cookingState, ui->startButton, SIGNAL(clicked()), this, SLOT(setDefaultTimeNPower()));
+
 
     // clock
     s1->addTransition(ui->clockButton, SIGNAL(clicked()), hoursState);
     hoursState->addTransition(ui->clockButton, SIGNAL(clicked()), minutesState);
-    minutesState->addTransition(ui->clockButton, SIGNAL(clicked()), s1);
+//    minutesState->addTransition(ui->clockButton, SIGNAL(clicked()), s1);
+    addTrans(minutesState, s1, ui->clockButton, SIGNAL(clicked()), this, SLOT(setOffsetTime()));
 
     QObject::connect(hoursState, SIGNAL(entered()), this, SLOT(saveTime()));
     QObject::connect(hoursState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the hours");});
@@ -48,25 +52,35 @@ MainWindow::MainWindow(QWidget *parent)
 
     // power
     s1->addTransition(ui->powerButton, SIGNAL(clicked()), powerState);
-    powerState->addTransition(ui->powerButton, SIGNAL(clicked()), durationState);
-    durationState->addTransition(ui->powerButton, SIGNAL(clicked()), s1);
+//    powerState->addTransition(ui->powerButton, SIGNAL(clicked()), durationState);
+//    durationState->addTransition(ui->powerButton, SIGNAL(clicked()), s1);
+    addTrans(powerState, durationState, ui->powerButton, SIGNAL(clicked()), this, SLOT(setPower()));
+    addTrans(durationState, s1, ui->powerButton, SIGNAL(clicked()), this, SLOT(setCookingDuration()));
 
     QObject::connect(powerState, SIGNAL(entered()), this, SLOT(resetLabels()));
     QObject::connect(powerState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the power");});
 
     // mode
     s1->addTransition(ui->modeButton, SIGNAL(clicked()), modeState);
-    modeState->addTransition(ui->modeButton, SIGNAL(clicked()), durationState);
-    durationState->addTransition(ui->modeButton, SIGNAL(clicked()), s1);
+//    modeState->addTransition(ui->modeButton, SIGNAL(clicked()), durationState);
+//    durationState->addTransition(ui->modeButton, SIGNAL(clicked()), s1);
+    addTrans(modeState, durationState, ui->modeButton, SIGNAL(clicked()), this, SLOT(setCurrentMode()));
+    addTrans(durationState, s1, ui->modeButton, SIGNAL(clicked()), this, SLOT(setCookingDuration()));
 
     QObject::connect(modeState, SIGNAL(entered()), this, SLOT(resetLabels()));
     QObject::connect(modeState, &QState::entered, [=]{this->ui->mwDisplay->setText("Select the mode");});
 
     // duration power + mode
-    durationState->addTransition(ui->startButton, SIGNAL(clicked()), cookingState);
+//    durationState->addTransition(ui->startButton, SIGNAL(clicked()), cookingState);
+    addTrans(durationState, cookingState, ui->startButton, SIGNAL(clicked()), this, SLOT(setCookingDuration()));
 
     QObject::connect(durationState, SIGNAL(entered()), this, SLOT(resetLabels()));
+    QObject::connect(cookingState, SIGNAL(entered()), this, SLOT(startCooking()));
     QObject::connect(durationState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the cooking duration");});
+    QObject::connect(cookingState, &QState::entered, [=]{
+        QString stringCooking = "Cooking with a power of " + QString::number(power) + "...";
+        this->ui->mwDisplay->setText(stringCooking);
+    });
 
     // defrost
     s1->addTransition(ui->defrostButton, SIGNAL(clicked()), defrostState);
@@ -82,14 +96,22 @@ MainWindow::MainWindow(QWidget *parent)
     microwave->start();
 
 
-    // Time
+
+
+    // Timers
     QTimer *timer = new QTimer(this);
     QObject::connect(timer, SIGNAL(timeout()), this, SLOT(showTime()));
     timer->start();
 
+
     // Dial
     QObject::connect(ui->dial, SIGNAL(valueChanged(int)), this, SLOT(slide(int)));
 
+    // Stop Button
+    QObject::connect(ui->stopButton, SIGNAL(clicked()), this, SLOT(stopButtonClicked()));
+
+    // Start Button
+    QObject::connect(ui->startButton, SIGNAL(clicked()), this, SLOT(startButtonClicked()));
 
 }
 
@@ -137,65 +159,100 @@ void MainWindow::showTime(){
 void MainWindow::slide(int value){
 
     if(microwave->configuration().contains(hoursState)){
-        QTime temp = QTime(value, ui->minutesLabel->text().toInt());
         ui->dial->setRange(0, 23);
-        ui->hoursLabel->setText(temp.toString("hh"));
-        offsetTime = currentTime.secsTo(temp);
+
+        if(value >= 0 && value <= 23){
+            QTime temp = QTime(value, ui->minutesLabel->text().toInt());
+
+
+            ui->hoursLabel->setText(temp.toString("hh"));
+//            offsetTime = currentTime.secsTo(temp);
+//            newOffsetTime = currentTime.secsTo(temp);
+        }
+
     }
 
     if(microwave->configuration().contains(minutesState)){
-        QTime temp = QTime(ui->hoursLabel->text().toInt(), value);
         ui->dial->setRange(0, 59);
-        ui->minutesLabel->setText(temp.toString("mm"));
-        offsetTime = currentTime.secsTo(temp);
+
+        if(value >= 0 && value <= 59){
+            QTime temp = QTime(ui->hoursLabel->text().toInt(), value);
+
+            ui->minutesLabel->setText(temp.toString("mm"));
+//            offsetTime = currentTime.secsTo(temp);
+            newOffsetTime = currentTime.secsTo(temp);
+
+        }
+
     }
 
     if(microwave->configuration().contains(powerState)){
         ui->dial->setRange(0, 100);
-        ui->minutesLabel->setText(QString::number(value));
-        power=value;
+
+        if (value >= 0 && value <= 100){
+            ui->minutesLabel->setText(QString::number(value));
+//            power=value;
+            newPower=value;
+        }
+
     }
 
     if(microwave->configuration().contains(durationState)){
         ui->dial->setRange(0, (30*60)); // for the total number of seconds up to 59 minutes and 59 seconds
-        QTime t0 = QTime(0, 0, 0);
-        int stepDuration = (value / 30) * 30;
 
-        QTime t1 = t0.addSecs(stepDuration);
-        ui->hoursLabel->setText(t1.toString("mm"));
-        ui->minutesLabel->setText(t1.toString("ss"));
-        cookingDuration=stepDuration;
+        if(value >= 0 && value <= (30*60)){
+            QTime t0 = QTime(0, 0, 0);
+            int stepDuration = (value / 30) * 30;
+
+            QTime t1 = t0.addSecs(stepDuration);
+            ui->hoursLabel->setText(t1.toString("mm"));
+            ui->minutesLabel->setText(t1.toString("ss"));
+//            cookingDuration=stepDuration;
+            newCookingDuration=stepDuration;
+        }
+
     }
 
     if(microwave->configuration().contains(modeState)){
         ui->dial->setRange(0, 2);
-        ui->minutesLabel->setText(modes[value]);
-        currentMode=value;
+
+        if(value >= 0 && value <= 2){
+            ui->minutesLabel->setText(modes[value]);
+//            currentMode=value;
+            newCurrentMode=value;
+        }
+
     }
 
 }
 
 void MainWindow::saveTime(){
     currentTime = QTime::currentTime();
+    ui->dial->setRange(0, 23);
 }
 
 void MainWindow::resetLabels(){
     ui->hoursLabel->setText("");
 
     if(microwave->configuration().contains(powerState)){
+
         ui->doubleDot->setText("");
         ui->minutesLabel->setText(QString::number(power));
     }
 
     if(microwave->configuration().contains(durationState)){
+
         ui->doubleDot->setText(":");
+
         QTime t0 = QTime(0, 0, 0);
         QTime t1 = t0.addSecs(cookingDuration);
+
         ui->hoursLabel->setText(t1.toString("mm"));
         ui->minutesLabel->setText(t1.toString("ss"));
     }
 
     if(microwave->configuration().contains(modeState)){
+
         ui->doubleDot->setText("");
         ui->minutesLabel->setText(modes[currentMode]);
     }
@@ -210,16 +267,125 @@ void MainWindow::resetLabels(){
         QTime t1 = t0.addSecs(stepDuration);
 
         // Timer to simulate calculation
-        QTimer *timer = new QTimer(this);
-        timer->setSingleShot(true);
+        defrostTimer = new QTimer(this);
+        defrostTimer->setSingleShot(true);
 
-        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->hoursLabel->setText(t1.toString("mm"));});
-        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->doubleDot->setText(":");});
-        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->minutesLabel->setText(t1.toString("ss"));});
+        QObject::connect(defrostTimer, &QTimer::timeout, [=]{
+            this->ui->hoursLabel->setText(t1.toString("mm"));
+            this->ui->doubleDot->setText(":");
+            this->ui->minutesLabel->setText(t1.toString("ss"));
+            cookingDuration=stepDuration;
+        });
+//        QObject::connect(defrostTimer, &QTimer::timeout, [=]{this->ui->doubleDot->setText(":");});
+//        QObject::connect(defrostTimer, &QTimer::timeout, [=]{this->ui->minutesLabel->setText(t1.toString("ss"));});
 
-        timer->start(2000);
+        defrostTimer->start(2000);
 
-        cookingDuration=stepDuration;
+//        cookingDuration=stepDuration;
+    }
+
+}
+
+void MainWindow::startCooking(){
+
+    seconds = new QTimer(this);
+
+
+    cookingTimer = new QTimer(this);
+    cookingTimer->setSingleShot(true);
+
+    QTime t0 = QTime(0, 0, 0);
+    QTime t1 = t0.addSecs(cookingDuration);
+
+    QString doubleD = ":";
+    if((t1.second() % 2) == 0)
+        doubleD = "";
+    ui->doubleDot->setText(doubleD);
+
+    ui->hoursLabel->setText(t1.toString("mm"));
+    ui->minutesLabel->setText(t1.toString("ss"));
+
+
+    seconds->start(1000);
+    cookingTimer->start(1000*cookingDuration);
+
+    QObject::connect(seconds, &QTimer::timeout, [=]{
+
+        cookingDuration = cookingDuration - 1;
+
+        QTime t0 = QTime(0, 0, 0);
+        QTime t1 = t0.addSecs(cookingDuration);
+
+        QString doubleD = ":";
+        if((t1.second() % 2) == 0)
+            doubleD = "";
+        ui->doubleDot->setText(doubleD);
+
+
+
+        ui->hoursLabel->setText(t1.toString("mm"));
+        ui->minutesLabel->setText(t1.toString("ss"));
+
+    });
+
+    QObject::connect(cookingTimer, &QTimer::timeout, [=]{
+        seconds->stop();
+        cookingDuration = 60;
+    });
+    cookingState->addTransition(cookingTimer, SIGNAL(timeout()), s1);
+
+}
+
+void MainWindow::setOffsetTime(){
+    offsetTime = newOffsetTime;
+}
+
+void MainWindow::setPower(){
+    power = newPower;
+}
+
+void MainWindow::setCookingDuration(){
+    cookingDuration = newCookingDuration;
+}
+
+void MainWindow::setCurrentMode(){
+    currentMode = newCurrentMode;
+}
+
+void MainWindow::setDefaultTimeNPower(){
+    cookingDuration = 60;
+    power = 100;
+}
+
+void MainWindow::stopButtonClicked(){
+
+    if(microwave->configuration().contains(cookingState)){
+        cookingTimer->stop();
+        seconds->stop();
+        cookingDuration = 60;
+    }
+
+    if(microwave->configuration().contains(defrostState)){
+        defrostTimer->stop();
+    }
+
+}
+
+void MainWindow::startButtonClicked(){
+
+    if(microwave->configuration().contains(cookingState)){
+        cookingDuration = cookingDuration + 60;
+        QTime t0 = QTime(0, 0, 0);
+        QTime t1 = t0.addSecs(cookingDuration);
+
+        QString doubleD = ":";
+        if((t1.second() % 2) == 0)
+            doubleD = "";
+        ui->doubleDot->setText(doubleD);
+
+        ui->hoursLabel->setText(t1.toString("mm"));
+        ui->minutesLabel->setText(t1.toString("ss"));
+
     }
 
 }

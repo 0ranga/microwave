@@ -41,13 +41,22 @@ private:
     // microwave variables
     QTime currentTime;
     int offsetTime{};
+    int newOffsetTime{};
 
     int power = 100;
+    int newPower = 100;
 
     int cookingDuration = 60;
+    int newCookingDuration = 60;
 
     QString modes[3] = {"Microwave", "Grill", "Microwave + Grill"};
     int currentMode = 0;
+    int newCurrentMode;
+
+    QTimer *seconds;
+    QTimer *cookingTimer;
+
+    QTimer *defrostTimer;
 
 
 private slots:
@@ -55,7 +64,16 @@ private slots:
     void slide(int value);
     void saveTime();
     void resetLabels();
+    void startCooking();
 
+    void setOffsetTime();
+    void setPower();
+    void setCookingDuration();
+    void setCurrentMode();
+    void setDefaultTimeNPower();
+
+    void stopButtonClicked();
+    void startButtonClicked();
     void on_clockButton_clicked();
     void on_defrostButton_clicked();
     void changeDisplay();
