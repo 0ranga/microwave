@@ -42,13 +42,16 @@ private:
     QTime currentTime;
     int offsetTime{};
 
-    int power = 50;
+    int power = 100;
+
+    int cookingDuration = 60;
 
 
 private slots:
     void showTime();
     void slide(int value);
     void saveTime();
+    void resetLabels();
 
     void on_clockButton_clicked();
     void on_defrostButton_clicked();

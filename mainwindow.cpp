@@ -50,13 +50,19 @@ MainWindow::MainWindow(QWidget *parent)
     powerState->addTransition(ui->powerButton, SIGNAL(clicked()), durationState);
     durationState->addTransition(ui->powerButton, SIGNAL(clicked()), s1);
 
+    QObject::connect(powerState, SIGNAL(entered()), this, SLOT(resetLabels()));
+    QObject::connect(powerState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the power");});
+
     // mode
     s1->addTransition(ui->modeButton, SIGNAL(clicked()), modeState);
     modeState->addTransition(ui->modeButton, SIGNAL(clicked()), durationState);
     durationState->addTransition(ui->modeButton, SIGNAL(clicked()), s1);
 
-    // power + mode
+    // duration power + mode
     durationState->addTransition(ui->startButton, SIGNAL(clicked()), cookingState);
+
+    QObject::connect(durationState, SIGNAL(entered()), this, SLOT(resetLabels()));
+    QObject::connect(durationState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the cooking duration");});
 
     // defrost
     s1->addTransition(ui->defrostButton, SIGNAL(clicked()), defrostState);
@@ -158,10 +164,40 @@ void MainWindow::slide(int value){
     if(microwave->configuration().contains(powerState)){
         ui->dial->setRange(0, 100);
         ui->minutesLabel->setText(QString::number(value));
+        power=value;
+    }
+
+    if(microwave->configuration().contains(durationState)){
+        ui->dial->setRange(0, (30*60)); // for the total number of seconds up to 59 minutes and 59 seconds
+        QTime t0 = QTime(0, 0, 0);
+        int stepDuration = (value / 30) * 30;
+
+        QTime t1 = t0.addSecs(stepDuration);
+        ui->hoursLabel->setText(t1.toString("mm"));
+        ui->minutesLabel->setText(t1.toString("ss"));
+        cookingDuration=stepDuration;
     }
 
 }
 
 void MainWindow::saveTime(){
     currentTime = QTime::currentTime();
+}
+
+void MainWindow::resetLabels(){
+    ui->hoursLabel->setText("");
+
+    if(microwave->configuration().contains(powerState)){
+        ui->doubleDot->setText("");
+        ui->minutesLabel->setText(QString::number(power));
+    }
+
+    if(microwave->configuration().contains(durationState)){
+        ui->doubleDot->setText(":");
+        QTime t0 = QTime(0, 0, 0);
+        QTime t1 = t0.addSecs(cookingDuration);
+        ui->hoursLabel->setText(t1.toString("mm"));
+        ui->minutesLabel->setText(t1.toString("ss"));
+    }
+
 }
