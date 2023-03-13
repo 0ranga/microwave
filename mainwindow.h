@@ -39,9 +39,10 @@ private:
     QState *defrostState;
 
     // microwave variables
-    int cookingTime;
     QTime currentTime;
     int offsetTime{};
+
+    int power = 50;
 
 
 private slots:

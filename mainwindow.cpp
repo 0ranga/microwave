@@ -17,13 +17,15 @@ MainWindow::MainWindow(QWidget *parent)
     // Idle
     s1 = new QState();
     microwave->addState(s1);
+    QObject::connect(s1, &QState::entered, [=]{this->ui->mwDisplay->setText("");});
 
 
-    // stop
+    // stop state
     stopState = new QState();
     microwave->addState(stopState);
     stopState->addTransition(ui->stopButton, SIGNAL(clicked()), s1);
 
+    // initializing the other states
     cookingState = new QState(stopState);
     hoursState = new QState(stopState);
     minutesState = new QState(stopState);
@@ -32,10 +34,16 @@ MainWindow::MainWindow(QWidget *parent)
     modeState = new QState(stopState);
     defrostState = new QState(stopState);
 
+
     // clock
     s1->addTransition(ui->clockButton, SIGNAL(clicked()), hoursState);
     hoursState->addTransition(ui->clockButton, SIGNAL(clicked()), minutesState);
     minutesState->addTransition(ui->clockButton, SIGNAL(clicked()), s1);
+
+    QObject::connect(hoursState, SIGNAL(entered()), this, SLOT(saveTime()));
+    QObject::connect(hoursState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the hours");});
+    QObject::connect(minutesState, &QState::entered, [=]{this->ui->mwDisplay->setText("Set the minutes");});
+
 
     // power
     s1->addTransition(ui->powerButton, SIGNAL(clicked()), powerState);
@@ -59,6 +67,7 @@ MainWindow::MainWindow(QWidget *parent)
 //    QObject::connect(s1, SIGNAL(entered()), this, SLOT(changeDisplay()));
 
 //    addTrans(s1, hoursState, ui->clockButton, SIGNAL(clicked()), this, SLOT(changeDisplay()));
+//    QObject::connect(s1, SIGNAL(entered()), this, SLOT(changeDisplay()));
 
 ////    QObject::connect(s1, &QState::entered, this, &MainWindow::changeDisplay);
 ////    QObject::connect(stopState, SIGNAL(entered()), this, SLOT(changeDisplay()));
@@ -76,11 +85,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 //    currentTime = QTime::currentTime();
 //    QString s = QString::number(currentTime.hour());
-
-    ui->lcdDisplay->display("OK");
-
-    QObject::connect(s1, SIGNAL(entered()), this, SLOT(changeDisplay()));
-    QObject::connect(hoursState, SIGNAL(entered()), this, SLOT(saveTime()));
 
 
     // Time
@@ -102,22 +106,11 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::on_clockButton_clicked() {
-    qDebug() << "clockButton: On passe au state s1" << microwave->configuration().contains(s1);
-    qDebug() << "clockButton: On passe au state stop" << microwave->configuration().contains(stopState);
-    qDebug() << "clockButton: On passe au state hours" << microwave->configuration().contains(hoursState);
-    qDebug() << "clockButton: On passe au state defrost" << microwave->configuration().contains(defrostState);
 
 }
 
 void MainWindow::on_defrostButton_clicked() {
-    qDebug() << "defrostButton: On passe au state s1" << s1->active();
-    qDebug() << "defrostButton: On passe au state stop" << stopState->active();
-    qDebug() << "defrostButton: On passe au state hours" << hoursState->active();
-    qDebug() << "defrostButton: On passe au state defrost" << defrostState->active();
 
-//    if(hoursState->active()){
-//        ui->lcdDisplay->display("true");
-//    }
 }
 
 void MainWindow::changeDisplay(){
@@ -128,9 +121,19 @@ void MainWindow::changeDisplay(){
 }
 
 void MainWindow::showTime(){
+
+    // checks that we are not in clock mode
     if( !(microwave->configuration().contains(hoursState) || microwave->configuration().contains(minutesState)) ) {
         QTime t = QTime::currentTime();
         currentTime= t.addSecs(offsetTime);
+    }
+
+    // updates the field only if in idle state
+    if(microwave->configuration().contains(s1)){
+        QString doubleD = ":";
+        if((currentTime.second() % 2) == 0)
+            doubleD = "";
+        ui->doubleDot->setText(doubleD);
         ui->hoursLabel->setText(currentTime.toString("hh"));
         ui->minutesLabel->setText(currentTime.toString("mm"));
     }
@@ -149,8 +152,12 @@ void MainWindow::slide(int value){
         QTime temp = QTime(ui->hoursLabel->text().toInt(), value);
         ui->dial->setRange(0, 59);
         ui->minutesLabel->setText(temp.toString("mm"));
-        qDebug() << temp.toString();
         offsetTime = currentTime.secsTo(temp);
+    }
+
+    if(microwave->configuration().contains(powerState)){
+        ui->dial->setRange(0, 100);
+        ui->minutesLabel->setText(QString::number(value));
     }
 
 }
