@@ -13,6 +13,7 @@ SOURCES += \
     mainwindow.cpp
 
 HEADERS += \
+    Transitions.h \
     mainwindow.h
 
 FORMS += \
