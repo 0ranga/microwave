@@ -3,6 +3,7 @@
 #include <QLCDNumber>
 #include <QString>
 #include <QTimer>
+#include <QRandomGenerator>
 #include "Transitions.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -69,31 +70,16 @@ MainWindow::MainWindow(QWidget *parent)
 
     // defrost
     s1->addTransition(ui->defrostButton, SIGNAL(clicked()), defrostState);
-    defrostState->addTransition(ui->startButton, SIGNAL(clicked()), s1);
+    defrostState->addTransition(ui->defrostButton, SIGNAL(clicked()), s1);
+    defrostState->addTransition(ui->startButton, SIGNAL(clicked()), cookingState);
+
+    QObject::connect(defrostState, SIGNAL(entered()), this, SLOT(resetLabels()));
+    QObject::connect(defrostState, &QState::entered, [=]{this->ui->mwDisplay->setText("Defrost mode");});
 
 
-
-//    QObject::connect(s1, SIGNAL(entered()), this, SLOT(changeDisplay()));
-
-//    addTrans(s1, hoursState, ui->clockButton, SIGNAL(clicked()), this, SLOT(changeDisplay()));
-//    QObject::connect(s1, SIGNAL(entered()), this, SLOT(changeDisplay()));
-
-////    QObject::connect(s1, &QState::entered, this, &MainWindow::changeDisplay);
-////    QObject::connect(stopState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(hoursState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(minutesState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(powerState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(durationState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(modeState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(cookingState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(defrostState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-////    QObject::connect(hoursState, SIGNAL(entered()), this, SLOT(changeDisplay()));
-
+    // start the state machine
     microwave->setInitialState(s1);
     microwave->start();
-
-//    currentTime = QTime::currentTime();
-//    QString s = QString::number(currentTime.hour());
 
 
     // Time
@@ -212,6 +198,28 @@ void MainWindow::resetLabels(){
     if(microwave->configuration().contains(modeState)){
         ui->doubleDot->setText("");
         ui->minutesLabel->setText(modes[currentMode]);
+    }
+
+    if(microwave->configuration().contains(defrostState)){
+        ui->doubleDot->setText("");
+        ui->minutesLabel->setText("Calculating...");
+
+        int stepDuration = ( QRandomGenerator::global()->bounded(30*60) / 30) * 30;
+
+        QTime t0 = QTime(0, 0, 0);
+        QTime t1 = t0.addSecs(stepDuration);
+
+        // Timer to simulate calculation
+        QTimer *timer = new QTimer(this);
+        timer->setSingleShot(true);
+
+        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->hoursLabel->setText(t1.toString("mm"));});
+        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->doubleDot->setText(":");});
+        QObject::connect(timer, &QTimer::timeout, [=]{this->ui->minutesLabel->setText(t1.toString("ss"));});
+
+        timer->start(2000);
+
+        cookingDuration=stepDuration;
     }
 
 }
