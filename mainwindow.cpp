@@ -58,6 +58,9 @@ MainWindow::MainWindow(QWidget *parent)
     modeState->addTransition(ui->modeButton, SIGNAL(clicked()), durationState);
     durationState->addTransition(ui->modeButton, SIGNAL(clicked()), s1);
 
+    QObject::connect(modeState, SIGNAL(entered()), this, SLOT(resetLabels()));
+    QObject::connect(modeState, &QState::entered, [=]{this->ui->mwDisplay->setText("Select the mode");});
+
     // duration power + mode
     durationState->addTransition(ui->startButton, SIGNAL(clicked()), cookingState);
 
@@ -178,6 +181,12 @@ void MainWindow::slide(int value){
         cookingDuration=stepDuration;
     }
 
+    if(microwave->configuration().contains(modeState)){
+        ui->dial->setRange(0, 2);
+        ui->minutesLabel->setText(modes[value]);
+        currentMode=value;
+    }
+
 }
 
 void MainWindow::saveTime(){
@@ -198,6 +207,11 @@ void MainWindow::resetLabels(){
         QTime t1 = t0.addSecs(cookingDuration);
         ui->hoursLabel->setText(t1.toString("mm"));
         ui->minutesLabel->setText(t1.toString("ss"));
+    }
+
+    if(microwave->configuration().contains(modeState)){
+        ui->doubleDot->setText("");
+        ui->minutesLabel->setText(modes[currentMode]);
     }
 
 }

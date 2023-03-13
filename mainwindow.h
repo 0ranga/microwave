@@ -46,6 +46,9 @@ private:
 
     int cookingDuration = 60;
 
+    QString modes[3] = {"Microwave", "Grill", "Microwave + Grill"};
+    int currentMode = 0;
+
 
 private slots:
     void showTime();
