@@ -74,8 +74,6 @@ private slots:
 
     void stopButtonClicked();
     void startButtonClicked();
-    void on_clockButton_clicked();
-    void on_defrostButton_clicked();
     void changeDisplay();
 
 

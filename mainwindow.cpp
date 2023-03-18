@@ -122,14 +122,6 @@ MainWindow::~MainWindow()
     delete microwave;
 }
 
-void MainWindow::on_clockButton_clicked() {
-
-}
-
-void MainWindow::on_defrostButton_clicked() {
-
-}
-
 void MainWindow::changeDisplay(){
     qDebug() << "changeDisplay: On passe au state s1" << microwave->configuration().contains(s1);
     qDebug() << "changeDisplay: On passe au state stop" << microwave->configuration().contains(stopState);
@@ -228,7 +220,7 @@ void MainWindow::slide(int value){
 
 void MainWindow::saveTime(){
     currentTime = QTime::currentTime();
-    ui->dial->setRange(0, 23);
+    ui->doubleDot->setText(":");
 }
 
 void MainWindow::resetLabels(){
