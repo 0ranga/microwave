@@ -60,6 +60,7 @@ cd microwave
 
 # Preview of the app
 
+![Preview of the app running on MacOS](/readme-pictures/preview.png "Preview of the app running on MacOS")
 
 # *Detailed behavior of the microwave:*
 
