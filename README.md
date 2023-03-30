@@ -55,7 +55,7 @@ git clone https://github.com/0ranga/microwave.git
 ```sh
 cd microwave
 ```
-4. Double click on the `.pro` file, here `Microwave.pro` it should open it with Qt Creator.
+4. Double click on the file `Microwave.pro` it should open the project with Qt Creator.
 5. Run the application within Qt Creator.
 
 # Preview of the app
